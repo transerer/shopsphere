@@ -1,0 +1,73 @@
+package org.shopshere.gateway.security;
+
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.core.Ordered;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
+
+@Component
+public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
+
+    private final JwtService jwtService;
+
+    public JwtAuthenticationFilter(JwtService jwtService) {
+        this.jwtService = jwtService;
+    }
+
+    @Override
+    public Mono<Void> filter(
+            ServerWebExchange exchange,
+            GatewayFilterChain chain) {
+
+        String path = exchange.getRequest()
+                .getURI()
+                .getPath();
+
+        // Login does not require a JWT
+        if (path.equals("/auth/login")) {
+            return chain.filter(exchange);
+        }
+
+        String authorization =
+                exchange.getRequest()
+                        .getHeaders()
+                        .getFirst(HttpHeaders.AUTHORIZATION);
+
+        if (authorization == null ||
+                !authorization.startsWith("Bearer ")) {
+
+            return unauthorized(exchange);
+        }
+
+        String token = authorization.substring(7);
+
+        try {
+
+            jwtService.validateToken(token);
+
+            return chain.filter(exchange);
+
+        } catch (Exception e) {
+
+            return unauthorized(exchange);
+        }
+    }
+
+    private Mono<Void> unauthorized(
+            ServerWebExchange exchange) {
+
+        exchange.getResponse()
+                .setStatusCode(HttpStatus.UNAUTHORIZED);
+
+        return exchange.getResponse().setComplete();
+    }
+
+    @Override
+    public int getOrder() {
+        return -100;
+    }
+}

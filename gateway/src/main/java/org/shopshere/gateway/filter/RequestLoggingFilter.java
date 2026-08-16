@@ -24,8 +24,9 @@ public class RequestLoggingFilter implements GlobalFilter, Ordered {
                 .getPath()
                 .value();
 
+        String id = exchange.getRequest().getHeaders().getFirst("X-Correlation-ID");
 
-        log.info("Incoming request path={}", path);
+        log.info("Incoming request path={} , corelation_id={}", path, id);
 
 
         return chain.filter(exchange);
